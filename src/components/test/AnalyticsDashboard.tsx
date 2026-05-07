@@ -64,8 +64,15 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
   let secondHalfCorrect = 0;
   let secondHalfAttempts = 0;
 
+  // Convert total time to seconds for consistent calculations
+  const totalTimeSeconds = totalTimeMinutes * 60;
+  const halftimeInSeconds = totalTimeSeconds / 2;
+
+  // Calculate interval duration in seconds (6 intervals total)
+  const intervalDuration = totalTimeSeconds / 6;
+
   const intervalData = Array.from({ length: 6 }, (_, i) => ({
-    time: `${(i + 1) * 30}m`,
+    time: `${Math.round((i + 1) * (totalTimeMinutes / 6))}m`,
     correct: 0,
     incorrect: 0,
     attempts: 0,
@@ -96,8 +103,8 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
         const qId = `${sec.id}-${i}`;
         const res = responses[qId];
         const key = answerKey[qId];
-        const time = res?.timeSpent || 0;
-        const markedAt = res?.markedAt || 0;
+        const time = res?.timeSpent || 0; // time in seconds
+        const markedAt = res?.markedAt || 0; // time in seconds
         
         totalQuestions++;
         subTime += time;
@@ -112,10 +119,12 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
           sectionMetrics[sec.type].attempts++;
           sectionMetrics[sec.type].score += score;
 
-          const intervalIdx = Math.min(5, Math.floor(markedAt / (30 * 60)));
+          // Fixed: Use calculated interval duration based on actual test time
+          const intervalIdx = Math.min(5, Math.floor(markedAt / intervalDuration));
           intervalData[intervalIdx].attempts++;
 
-          if (markedAt < (totalTimeMinutes * 30)) {
+          // Fixed: Compare markedAt (seconds) with halftime (seconds)
+          if (markedAt < halftimeInSeconds) {
             firstHalfAttempts++;
             if (score > 0) firstHalfCorrect++;
           } else {
@@ -155,6 +164,8 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
     totalCorrect += subCorrect;
     totalTimeSpent += subTime;
 
+    // Fixed: ROI calculated consistently as marks per minute
+    const subTimeInMinutes = subTime / 60;
     return {
       name: sub.name,
       score: subScore,
@@ -162,7 +173,7 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
       accuracy: subAttempts > 0 ? (subCorrect / subAttempts) * 100 : 0,
       time: Math.floor(subTime / 60),
       attempts: subAttempts,
-      roi: subTime > 0 ? (subScore / (subTime / 60)) : 0
+      roi: subTimeInMinutes > 0 ? (subScore / subTimeInMinutes) : 0
     };
   });
 
@@ -183,10 +194,14 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
   const avgTimeCorrect = totalCorrect > 0 ? Math.floor(timeOnCorrect / totalCorrect) : 0;
   const avgTimeIncorrect = totalIncorrect > 0 ? Math.floor(timeOnIncorrect / totalIncorrect) : 0;
   
+  // Fixed: Use consistent time units for stamina calculation
   const firstHalfAccuracy = firstHalfAttempts > 0 ? (firstHalfCorrect / firstHalfAttempts) * 100 : 0;
   const secondHalfAccuracy = secondHalfAttempts > 0 ? (secondHalfCorrect / secondHalfAttempts) * 100 : 0;
   const staminaIndex = firstHalfAccuracy > 0 ? (secondHalfAccuracy / firstHalfAccuracy) * 100 : 0;
-  const efficiencyRating = totalTimeSpent > 0 ? (totalScore / (totalTimeSpent / 60)).toFixed(2) : "0";
+  
+  // Fixed: Efficiency rating calculated consistently as marks per minute
+  const totalTimeSpentInMinutes = totalTimeSpent / 60;
+  const efficiencyRating = totalTimeSpentInMinutes > 0 ? (totalScore / totalTimeSpentInMinutes).toFixed(2) : "0";
 
   const sectionalData = Object.entries(sectionMetrics).map(([type, data]) => ({
     name: type.toUpperCase(),
@@ -553,7 +568,7 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">22. Effort Distribution</p>
                 <div className="space-y-2 mt-2">
                   {subjectMetrics.map((s, i) => {
-                    const pct = totalTimeSpent > 0 ? (s.time / (totalTimeSpent/60)) * 100 : 0;
+                    const pct = totalTimeSpentInMinutes > 0 ? (s.time / totalTimeSpentInMinutes) * 100 : 0;
                     return (
                       <div key={s.name} className="space-y-1">
                         <div className="flex justify-between text-[10px] font-bold">
