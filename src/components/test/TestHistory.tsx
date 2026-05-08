@@ -95,6 +95,7 @@ export function TestHistory({ onBack, onViewTest }: TestHistoryProps) {
           alert("Backup restored successfully!");
         }
       } catch (err) {
+        console.error("Backup restoration error:", err);
         alert("Invalid backup file.");
       }
     };

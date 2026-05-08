@@ -64,15 +64,8 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
   let secondHalfCorrect = 0;
   let secondHalfAttempts = 0;
 
-  // Convert total time to seconds for consistent calculations
-  const totalTimeSeconds = totalTimeMinutes * 60;
-  const halftimeInSeconds = totalTimeSeconds / 2;
-
-  // Calculate interval duration in seconds (6 intervals total)
-  const intervalDuration = totalTimeSeconds / 6;
-
   const intervalData = Array.from({ length: 6 }, (_, i) => ({
-    time: `${Math.round((i + 1) * (totalTimeMinutes / 6))}m`,
+    time: `${(i + 1) * 30}m`,
     correct: 0,
     incorrect: 0,
     attempts: 0,
@@ -103,8 +96,8 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
         const qId = `${sec.id}-${i}`;
         const res = responses[qId];
         const key = answerKey[qId];
-        const time = res?.timeSpent || 0; // time in seconds
-        const markedAt = res?.markedAt || 0; // time in seconds
+        const time = res?.timeSpent || 0;
+        const markedAt = res?.markedAt || 0;
         
         totalQuestions++;
         subTime += time;
@@ -119,12 +112,10 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
           sectionMetrics[sec.type].attempts++;
           sectionMetrics[sec.type].score += score;
 
-          // Fixed: Use calculated interval duration based on actual test time
-          const intervalIdx = Math.min(5, Math.floor(markedAt / intervalDuration));
+          const intervalIdx = Math.min(5, Math.floor(markedAt / (30 * 60)));
           intervalData[intervalIdx].attempts++;
 
-          // Fixed: Compare markedAt (seconds) with halftime (seconds)
-          if (markedAt < halftimeInSeconds) {
+          if (markedAt < (totalTimeMinutes * 30)) {
             firstHalfAttempts++;
             if (score > 0) firstHalfCorrect++;
           } else {
@@ -164,16 +155,14 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
     totalCorrect += subCorrect;
     totalTimeSpent += subTime;
 
-    // Fixed: ROI calculated consistently as marks per minute
-    const subTimeInMinutes = subTime / 60;
     return {
       name: sub.name,
       score: subScore,
       max: subMax,
       accuracy: subAttempts > 0 ? (subCorrect / subAttempts) * 100 : 0,
-      time: Math.floor(subTime / 60),
+      time: parseFloat((subTime / 60).toFixed(1)),
       attempts: subAttempts,
-      roi: subTimeInMinutes > 0 ? (subScore / subTimeInMinutes) : 0
+      roi: subTime > 0 ? (subScore / (subTime / 60)) : 0
     };
   });
 
@@ -194,14 +183,10 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
   const avgTimeCorrect = totalCorrect > 0 ? Math.floor(timeOnCorrect / totalCorrect) : 0;
   const avgTimeIncorrect = totalIncorrect > 0 ? Math.floor(timeOnIncorrect / totalIncorrect) : 0;
   
-  // Fixed: Use consistent time units for stamina calculation
   const firstHalfAccuracy = firstHalfAttempts > 0 ? (firstHalfCorrect / firstHalfAttempts) * 100 : 0;
   const secondHalfAccuracy = secondHalfAttempts > 0 ? (secondHalfCorrect / secondHalfAttempts) * 100 : 0;
-  const staminaIndex = firstHalfAccuracy > 0 ? (secondHalfAccuracy / firstHalfAccuracy) * 100 : 0;
-  
-  // Fixed: Efficiency rating calculated consistently as marks per minute
-  const totalTimeSpentInMinutes = totalTimeSpent / 60;
-  const efficiencyRating = totalTimeSpentInMinutes > 0 ? (totalScore / totalTimeSpentInMinutes).toFixed(2) : "0";
+  const staminaIndex = firstHalfAccuracy > 0 ? (secondHalfAccuracy / firstHalfAccuracy) * 100 : 100;
+  const efficiencyRating = totalTimeSpent > 0 ? (totalScore / (totalTimeSpent / 60)).toFixed(2) : "0";
 
   const sectionalData = Object.entries(sectionMetrics).map(([type, data]) => ({
     name: type.toUpperCase(),
@@ -568,7 +553,7 @@ export function AnalyticsDashboard({ subjects, responses, answerKey, totalTimeMi
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">22. Effort Distribution</p>
                 <div className="space-y-2 mt-2">
                   {subjectMetrics.map((s, i) => {
-                    const pct = totalTimeSpentInMinutes > 0 ? (s.time / totalTimeSpentInMinutes) * 100 : 0;
+                    const pct = totalTimeSpent > 0 ? (s.time / (totalTimeSpent/60)) * 100 : 0;
                     return (
                       <div key={s.name} className="space-y-1">
                         <div className="flex justify-between text-[10px] font-bold">
@@ -684,30 +669,36 @@ export function calculateJEEAdvScore(response: string | string[] | undefined, ke
   if (!key) return 0;
   if (!response || (Array.isArray(response) && response.length === 0) || response === '') return 0;
 
-  if (section.type === 'single') {
-    return response === key ? section.positiveMarks : -section.negativeMarks;
-  }
-
-  if (section.type === 'multiple') {
-    const resArr = Array.isArray(response) ? response : [response];
-    const keyArr = Array.isArray(key) ? key : [key];
-
-    const hasIncorrect = resArr.some(opt => !keyArr.includes(opt));
-    if (hasIncorrect) return -section.negativeMarks;
-
-    if (resArr.length === keyArr.length && resArr.every(opt => keyArr.includes(opt))) {
-      return section.positiveMarks;
+  try {
+    if (section.type === 'single') {
+      return response === key ? section.positiveMarks : -section.negativeMarks;
     }
 
-    if (section.partialMarking && resArr.length > 0) {
-       return Math.min(resArr.length, section.positiveMarks - 1);
+    if (section.type === 'multiple') {
+      const resArr = Array.isArray(response) ? response : [response];
+      const keyArr = Array.isArray(key) ? key : [key];
+
+      const hasIncorrect = resArr.some(opt => !keyArr.includes(opt));
+      if (hasIncorrect) return -section.negativeMarks;
+
+      if (resArr.length === keyArr.length && resArr.every(opt => keyArr.includes(opt))) {
+        return section.positiveMarks;
+      }
+
+      if (section.partialMarking && resArr.length > 0) {
+        // Standard JEE Adv Partial Marking: +1 for each correct option marked, if no incorrect ones
+        return resArr.length;
+      }
+
+      return 0; // Not attempted fully or partially
     }
 
-    return -section.negativeMarks;
-  }
-
-  if (section.type === 'numeric') {
-    return response === key ? section.positiveMarks : -section.negativeMarks;
+    if (section.type === 'numeric') {
+      // Check if numeric values match (allow some float tolerance if needed, but usually exact for keys)
+      return String(response).trim() === String(key).trim() ? section.positiveMarks : -section.negativeMarks;
+    }
+  } catch (err) {
+    console.error("Score calculation error:", err);
   }
 
   return 0;

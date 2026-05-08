@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo, ReactNode } from 'react';
+import { useState, useEffect, useMemo, ReactNode, useRef } from 'react';
 import { SubjectConfig, SectionConfig, ResponseMap } from '@/app/lib/types';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ export function ResponseConsole({
   timerElement
 }: ResponseConsoleProps) {
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [initialTimeSpent, setInitialTimeSpent] = useState<number>(0);
 
   const activeSubject = subjects[activeSubjectIdx];
   const activeSection = activeSubject.sections[activeSectionIdx];
@@ -59,15 +60,49 @@ export function ResponseConsole({
     return count;
   }, [subjects, activeSubjectIdx, activeSectionIdx, activeQuestionNum]);
 
+  const refs = useRef({
+    responses,
+    onResponse,
+    elapsedTime,
+    activeQuestionId,
+    activeSection
+  });
+
   useEffect(() => {
-    setQuestionStartTime(Date.now());
+    refs.current = { responses, onResponse, elapsedTime, activeQuestionId, activeSection };
+  }, [responses, onResponse, elapsedTime, activeQuestionId, activeSection]);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const qIdAtStart = activeQuestionId;
+    const initialAtStart = responses[activeQuestionId]?.timeSpent || 0;
+    
+    setQuestionStartTime(startTime);
+    setInitialTimeSpent(initialAtStart);
+
+    return () => {
+      const now = Date.now();
+      const sessionDuration = Math.floor((now - startTime) / 1000);
+      if (sessionDuration > 0) {
+        const currentRes = refs.current.responses[qIdAtStart];
+        const val = currentRes?.value || (refs.current.activeSection.type === 'multiple' ? [] : '');
+        const isMarked = currentRes?.isMarkedForReview || false;
+        
+        refs.current.onResponse(
+          qIdAtStart, 
+          val, 
+          initialAtStart + sessionDuration, 
+          refs.current.elapsedTime, 
+          isMarked
+        );
+      }
+    };
   }, [activeQuestionId]);
 
   const getCurrentTimeSpent = () => {
     const now = Date.now();
     const elapsedLocal = Math.floor((now - questionStartTime) / 1000);
-    const existing = responses[activeQuestionId]?.timeSpent || 0;
-    return existing + elapsedLocal;
+    return initialTimeSpent + elapsedLocal;
   };
 
   const handleOptionClick = (val: string) => {
