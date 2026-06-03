@@ -11,7 +11,7 @@ import { AnalyticsDashboard, calculateJEEAdvScore } from '@/components/test/Anal
 import { TestHistory } from '@/components/test/TestHistory';
 import { TestConfiguration, ResponseMap, AnswerKeyMap, TestStatus, SavedTest } from '@/app/lib/types';
 import { cn } from '@/lib/utils';
-import { Info, FileText, Heart } from 'lucide-react';
+import { Info, FileText, Heart, Menu, X } from 'lucide-react';
 
 export default function Home() {
   const [status, setStatus] = useState<TestStatus>('setup');
@@ -22,6 +22,19 @@ export default function Home() {
   const [activeSubjectIdx, setActiveSubjectIdx] = useState(0);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
   const [activeQuestionNum, setActiveQuestionNum] = useState(1);
+  const [mobileView, setMobileView] = useState<'pdf' | 'console' | 'palette'>('console');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile device
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const startTest = (conf: TestConfiguration) => {
     setConfig(conf);
@@ -114,7 +127,8 @@ export default function Home() {
 
     return (
       <div className="flex flex-col h-screen bg-white text-slate-900 overflow-hidden font-sans">
-        <header className="h-[60px] bg-white border-b border-slate-300 flex items-center justify-between px-4 shrink-0">
+        {/* DESKTOP HEADER */}
+        <header className="hidden md:flex h-[60px] bg-white border-b border-slate-300 items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-4">
             <div className="bg-[#414141] text-white px-2 py-0.5 rounded font-bold text-[14px]">JEE</div>
             <div className="flex flex-col">
@@ -131,7 +145,36 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="h-[45px] bg-[#e5e5e5] border-b border-slate-300 flex items-center px-2 shrink-0 overflow-x-auto no-scrollbar">
+        {/* MOBILE HEADER */}
+        <header className="md:hidden h-[50px] bg-white border-b border-slate-300 flex items-center justify-between px-3 shrink-0">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="bg-[#414141] text-white px-1.5 py-0.5 rounded font-bold text-[11px]">JEE</div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[12px] font-bold text-[#333] truncate">JEE Advanced Mock</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 hover:bg-slate-100 rounded"
+          >
+            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+        </header>
+
+        {/* MOBILE MENU */}
+        {isMobile && mobileMenuOpen && (
+          <div className="md:hidden bg-slate-50 border-b border-slate-300 p-3 flex gap-2 flex-wrap">
+            <button className="flex items-center gap-1 text-[11px] font-bold text-[#2d76b1] hover:bg-slate-200 px-2 py-1.5 rounded flex-1 min-w-[120px] justify-center">
+              <Info className="w-3.5 h-3.5" /> Instructions
+            </button>
+            <button className="flex items-center gap-1 text-[11px] font-bold text-[#2d76b1] hover:bg-slate-200 px-2 py-1.5 rounded flex-1 min-w-[120px] justify-center">
+              <FileText className="w-3.5 h-3.5" /> Paper
+            </button>
+          </div>
+        )}
+
+        {/* SECTION TABS - SCROLLABLE ON MOBILE */}
+        <div className="h-[40px] md:h-[45px] bg-[#e5e5e5] border-b border-slate-300 flex items-center px-2 shrink-0 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-0.5">
             {config.subjects.flatMap((sub, sIdx) => 
               sub.sections.map((sec, secIdx) => (
@@ -141,27 +184,28 @@ export default function Home() {
                     setActiveSubjectIdx(sIdx);
                     setActiveSectionIdx(secIdx);
                     setActiveQuestionNum(1);
+                    setMobileMenuOpen(false);
                   }}
                   className={cn(
-                    "px-4 h-[35px] flex items-center justify-center text-[11px] font-bold rounded-t-sm transition-all whitespace-nowrap border-x border-t",
+                    "px-3 md:px-4 h-[32px] md:h-[35px] flex items-center justify-center text-[10px] md:text-[11px] font-bold rounded-t-sm transition-all whitespace-nowrap border-x border-t",
                     activeSubjectIdx === sIdx && activeSectionIdx === secIdx 
                       ? "bg-[#0076ad] text-white border-[#0076ad]" 
                       : "bg-[#f2f2f2] text-[#333] border-slate-300 hover:bg-slate-200"
                   )}
                 >
                   {sub.name} {sec.name}
-                  <Info className="w-3 h-3 ml-2 opacity-50" />
                 </button>
               ))
             )}
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        {/* DESKTOP LAYOUT: 3-COLUMN */}
+        <div className="hidden md:flex flex-1 overflow-hidden">
           {/* LEFT: PDF VIEWER */}
           <div className="basis-[50%] flex flex-col overflow-hidden bg-white border-r border-slate-300">
             <div className="h-[35px] border-b border-slate-200 flex items-center justify-between px-4 shrink-0 bg-[#f5f5f5]">
-              <span className="text-[12px] font-bold text-[#333]">Question Paper Viewer</span>
+              <span className="text-[12px] font-bold text-[#333]">Question Paper</span>
               <div className="flex items-center gap-6">
                  <span className="text-[11px] text-[#333]">Marks: <span className="text-green-600 font-bold">+{activeSection.positiveMarks}</span> / <span className="text-red-600 font-bold">-{activeSection.negativeMarks}</span></span>
               </div>
@@ -225,6 +269,113 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {/* MOBILE LAYOUT: TABBED */}
+        <div className="flex md:hidden flex-1 overflow-hidden flex-col">
+          {/* MOBILE VIEW TABS */}
+          <div className="h-[40px] bg-[#f5f5f5] border-b border-slate-300 flex items-center shrink-0">
+            <button
+              onClick={() => setMobileView('pdf')}
+              className={cn(
+                "flex-1 h-full flex items-center justify-center text-[11px] font-bold border-r border-slate-300 transition-colors",
+                mobileView === 'pdf' 
+                  ? "bg-[#0076ad] text-white" 
+                  : "bg-slate-100 text-[#333] hover:bg-slate-200"
+              )}
+            >
+              PDF
+            </button>
+            <button
+              onClick={() => setMobileView('console')}
+              className={cn(
+                "flex-1 h-full flex items-center justify-center text-[11px] font-bold border-r border-slate-300 transition-colors",
+                mobileView === 'console' 
+                  ? "bg-[#0076ad] text-white" 
+                  : "bg-slate-100 text-[#333] hover:bg-slate-200"
+              )}
+            >
+              Response
+            </button>
+            <button
+              onClick={() => setMobileView('palette')}
+              className={cn(
+                "flex-1 h-full flex items-center justify-center text-[11px] font-bold transition-colors",
+                mobileView === 'palette' 
+                  ? "bg-[#0076ad] text-white" 
+                  : "bg-slate-100 text-[#333] hover:bg-slate-200"
+              )}
+            >
+              Questions
+            </button>
+          </div>
+
+          {/* MOBILE CONTENT AREA */}
+          <div className="flex-1 overflow-hidden">
+            {mobileView === 'pdf' && (
+              <div className="w-full h-full flex flex-col bg-white">
+                <div className="h-[30px] border-b border-slate-200 flex items-center justify-between px-3 shrink-0 bg-[#f5f5f5]">
+                  <span className="text-[10px] font-bold text-[#333]">Question Paper</span>
+                  <span className="text-[10px] text-[#333]"><span className="text-green-600 font-bold">+{activeSection.positiveMarks}</span>/<span className="text-red-600 font-bold">-{activeSection.negativeMarks}</span></span>
+                </div>
+                <div className="flex-1 overflow-auto bg-slate-100">
+                  {config.pdfUrl ? (
+                    <iframe 
+                      src={config.pdfUrl} 
+                      className="w-full h-full border-none" 
+                      title="Question Paper"
+                    />
+                  ) : (
+                    <div className="w-full h-full p-4 text-slate-400 text-center flex flex-col items-center justify-center">
+                      <p className="text-sm font-bold">PDF NOT UPLOADED</p>
+                      <p className="text-xs mt-2">Upload a paper in setup</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {mobileView === 'console' && (
+              <ResponseConsole 
+                subjects={config.subjects}
+                activeSubjectIdx={activeSubjectIdx}
+                activeSectionIdx={activeSectionIdx}
+                activeQuestionNum={activeQuestionNum}
+                setActiveQuestionNum={setActiveQuestionNum}
+                responses={responses}
+                elapsedTime={elapsedTime}
+                onResponse={handleResponse}
+                onSubmit={submitTest}
+                onQuestionChange={(sIdx, secIdx) => {
+                  setActiveSubjectIdx(sIdx);
+                  setActiveSectionIdx(secIdx);
+                }}
+                timerElement={
+                  <TestTimer 
+                    durationMinutes={config.totalTimeMinutes} 
+                    onTimeUpdate={setElapsedTime}
+                    onTimeUp={submitTest}
+                  />
+                }
+              />
+            )}
+
+            {mobileView === 'palette' && (
+              <QuestionPalette 
+                subjects={config.subjects}
+                activeSubjectIdx={activeSubjectIdx}
+                activeSectionIdx={activeSectionIdx}
+                activeQuestionNum={activeQuestionNum}
+                responses={responses}
+                onQuestionChange={(sIdx, secIdx, qNum) => {
+                  setActiveSubjectIdx(sIdx);
+                  setActiveSectionIdx(secIdx);
+                  setActiveQuestionNum(qNum);
+                }}
+              />
+            )}
+          </div>
+        </div>
+
         <CreditBanner />
       </div>
     );
@@ -233,7 +384,7 @@ export default function Home() {
   if (status === 'answering' && config) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <AnswerKeyEntry subjects={config.subjects} onComplete={completeAnswerKey} />
         </div>
         <CreditBanner />
@@ -244,7 +395,7 @@ export default function Home() {
   if (status === 'results' && config) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <AnalyticsDashboard 
             subjects={config.subjects}
             responses={responses}
